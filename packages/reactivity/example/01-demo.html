@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script type="module">
+        import { ref, effect } from '../dist/reactivity.esm.js'
+        // import { ref, effect } from '../../../node_modules/vue/dist/vue.esm-browser.prod.js'
+        const count = ref(0)
+        // effect(() => {
+        //     console.log('count1==>', count.value);
+        // })
+        // effect(() => {
+        //     console.log('count2==>', count.value);
+        // })
+        // effect(() => {
+        //     effect(() => {
+        //         effect(() => {
+        //             console.log('嵌套2的 effect count1==>', count.value);
+        //         })
+        //         console.log('嵌套的 effect count1==>', count.value);
+        //     })
+        //     console.log('外部的 effect count1==>', count.value);
+        // })
+
+        const runner = effect(() => {
+            console.log('effect count==>', count.value);
+
+            // 这里的返回值等于ReactiveEffect run()方法的返回值
+            return 1
+        }, {
+            scheduler() {
+                const newValue = runner()
+                console.log('触发了调度器', newValue);
+            }
+        })
+        setTimeout(() => {
+            count.value = 1
+        }, 1000)
+    </script>
+</body>
+
+</html>
