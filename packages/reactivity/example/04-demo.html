@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <script type="module">
+        import { ref, effect } from '../dist/reactivity.esm.js'
+        // import { ref, effect } from '../../../node_modules/vue/dist/vue.esm-browser.prod.js'
+        const count = ref(18)
+        effect(() => {
+            console.log(count.value++);
+        })
+    </script>
+</body>
+
+</html>

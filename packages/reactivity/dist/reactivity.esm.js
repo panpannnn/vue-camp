@@ -1,55 +1,28 @@
-// packages/reactivity/src/effect.ts
-var activeSub;
-var ReactiveEffect = class {
-  constructor(fn) {
-    this.fn = fn;
-  }
-  // 依赖项链表头节点
-  deps;
-  // 依赖项链表尾节点
-  depsTail;
-  run() {
-    const prevSub = activeSub;
-    activeSub = this;
-    this.depsTail = void 0;
-    try {
-      return this.fn();
-    } finally {
-      activeSub = prevSub;
-    }
-  }
-  notify() {
-    this.scheduler();
-  }
-  scheduler() {
-    this.run();
-  }
-};
-function effect(fn, option) {
-  const e = new ReactiveEffect(fn);
-  Object.assign(e, option);
-  e.run();
-  const runner = e.run.bind(e);
-  runner.effect = e;
-  return runner;
-}
-
 // packages/reactivity/src/system.ts
+var linkPool;
 function link(dep, sub) {
   const currentDep = sub.depsTail;
   const nextDep = currentDep === void 0 ? sub.deps : currentDep.nextDep;
   if (nextDep && nextDep.dep === dep) {
-    console.log("\u76F8\u540C\u7684\u4F9D\u8D56\uFF0C\u76F4\u63A5\u590D\u7528");
     sub.depsTail = nextDep;
     return;
   }
-  const newLink = {
-    sub,
-    dep,
-    nextDep: void 0,
-    nextSub: void 0,
-    prevSub: void 0
-  };
+  let newLink;
+  if (linkPool) {
+    newLink = linkPool;
+    linkPool = linkPool.nextDep;
+    newLink.nextDep = nextDep;
+    newLink.dep = dep;
+    newLink.sub = sub;
+  } else {
+    newLink = {
+      sub,
+      dep,
+      nextDep,
+      nextSub: void 0,
+      prevSub: void 0
+    };
+  }
   if (dep.subsTail) {
     dep.subsTail.nextSub = newLink;
     newLink.prevSub = dep.subsTail;
@@ -70,10 +43,89 @@ function propagate(subs) {
   let link2 = subs;
   let queuedEffect = [];
   while (link2) {
-    queuedEffect.push(link2.sub);
+    const sub = link2.sub;
+    if (!sub.tracking) {
+      queuedEffect.push(link2.sub);
+    }
     link2 = link2.nextSub;
   }
   queuedEffect.forEach((effect2) => effect2.notify());
+}
+function startTrack(sub) {
+  sub.tracking = true;
+  sub.depsTail = void 0;
+}
+function endTrack(sub) {
+  sub.tracking = false;
+  const depsTail = sub.depsTail;
+  if (depsTail) {
+    if (depsTail.nextDep) {
+      clearTracking(depsTail.nextDep);
+      depsTail.nextDep = void 0;
+    }
+  } else if (sub.deps) {
+    clearTracking(sub.deps);
+    sub.deps = void 0;
+  }
+}
+function clearTracking(link2) {
+  while (link2) {
+    const { prevSub, nextSub, dep, nextDep } = link2;
+    if (prevSub) {
+      prevSub.nextSub = nextSub;
+      link2.nextSub = void 0;
+    } else {
+      dep.subs = nextSub;
+    }
+    if (nextSub) {
+      nextSub.prevSub = prevSub;
+      link2.prevSub = void 0;
+    } else {
+      dep.subsTail = prevSub;
+    }
+    link2.dep = link2.sub = void 0;
+    link2.nextDep = linkPool;
+    linkPool = link2;
+    link2 = nextDep;
+  }
+}
+
+// packages/reactivity/src/effect.ts
+var activeSub;
+var ReactiveEffect = class {
+  constructor(fn) {
+    this.fn = fn;
+  }
+  // 依赖项链表头节点
+  deps;
+  // 依赖项链表尾节点
+  depsTail;
+  tracking = false;
+  run() {
+    const prevSub = activeSub;
+    activeSub = this;
+    startTrack(this);
+    try {
+      return this.fn();
+    } finally {
+      endTrack(this);
+      activeSub = prevSub;
+    }
+  }
+  notify() {
+    this.scheduler();
+  }
+  scheduler() {
+    this.run();
+  }
+};
+function effect(fn, option) {
+  const e = new ReactiveEffect(fn);
+  Object.assign(e, option);
+  e.run();
+  const runner = e.run.bind(e);
+  runner.effect = e;
+  return runner;
 }
 
 // packages/reactivity/src/ref.ts
