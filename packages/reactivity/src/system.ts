@@ -1,19 +1,20 @@
 import { ReactiveEffect } from 'vue'
 
-interface Dep {
+export interface Dependency {
     subs: Link | undefined
     subsTail: Link | undefined
 }
 
-interface Sub {
+export interface Sub {
     deps: Link | undefined
     depsTail: Link | undefined
+    tracking: Boolean
 }
 export interface Link {
     sub: Sub
     nextSub: Link | undefined
     prevSub: Link | undefined
-    dep: Dep
+    dep: Dependency
     nextDep: Link | undefined
 }
 // 保存已经被清理掉的节点，留着复用
@@ -81,14 +82,26 @@ export function link(dep, sub) {
         sub.deps = newLink
         sub.depsTail = newLink
     }
+
+}
+
+function processComputedUpdate(sub) {
+    if (sub.subs && sub.update()) {
+        propagate(sub.subs)
+    }
 }
 export function propagate(subs) {
     let link = subs
     let queuedEffect = []
     while (link) {
         const sub = link.sub
-        if (!sub.tracking) {
-            queuedEffect.push(link.sub)
+        if (!sub.tracking && !sub.dirty) {
+            sub.dirty = true
+            if ('update' in sub) {
+                processComputedUpdate(sub)
+            } else {
+                queuedEffect.push(link.sub)
+            }
         }
         link = link.nextSub
     }
@@ -102,6 +115,7 @@ export function startTrack(sub) {
 
 export function endTrack(sub) {
     sub.tracking = false
+    sub.dirty = false
     const depsTail = sub.depsTail
     /**
      * 1.depsTail 有，并且 depsTail 还有nextDep， 应该把它们的依赖关系清理掉

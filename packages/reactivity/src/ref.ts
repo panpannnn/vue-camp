@@ -1,16 +1,18 @@
+import { hasChanged, isObject } from "@vue/shared";
 import { activeSub } from "./effect";
-import { Link, link, propagate } from './system'
+import { Dependency, Link, link, propagate } from './system'
+import { reactive } from './reactive'
 
-enum ReaactiveFlags {
+export enum ReaactiveFlags {
     IS_REF = '__v_isRef'
 }
-class RefImpl {
+class RefImpl implements Dependency {
     _value
     [ReaactiveFlags.IS_REF] = true
     subs: Link
     subsTail: Link
     constructor(value) {
-        this._value = value
+        this._value = isObject(value) ? reactive(value) : value
     }
 
     get value() {
@@ -23,8 +25,10 @@ class RefImpl {
 
     set value(newValue) {
         // console.log('set value');
-        this._value = newValue
-        triggerRef(this)
+        if (hasChanged(newValue, this._value)) {
+            this._value = isObject(newValue) ? reactive(newValue) : newValue
+            triggerRef(this)
+        }
     }
 }
 

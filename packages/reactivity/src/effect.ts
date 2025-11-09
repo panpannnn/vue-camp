@@ -1,26 +1,31 @@
-import { Link, startTrack, endTrack } from "./system"
+import { Link, startTrack, endTrack, Sub } from "./system"
 
 export let activeSub
 
-class ReactiveEffect {
+export function setActiveSub(sub) {
+    activeSub = sub
+}
+
+class ReactiveEffect implements Sub {
     // 依赖项链表头节点
     deps: Link | undefined
     // 依赖项链表尾节点
     depsTail: Link | undefined
 
     tracking = false
+    dirty = false
     constructor(public fn) { }
 
     run() {
         const prevSub = activeSub
-        activeSub = this
+        setActiveSub(this)
         startTrack(this)
 
         try {
             return this.fn()
         } finally {
             endTrack(this)
-            activeSub = prevSub
+            setActiveSub(prevSub)
         }
     }
 
