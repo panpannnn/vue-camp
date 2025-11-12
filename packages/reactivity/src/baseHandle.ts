@@ -20,8 +20,18 @@ export const mutableHandlers = {
         return Reflect.get(target, key, receiver)
     },
     set(target, key, newValue, receiver) {
+        const targetIsArray = Array.isArray(target)
+        const oldLength = targetIsArray? target.length : 0
+
         const oldValue = target[key]
         const res = Reflect.set(target, key, newValue, receiver)
+
+        const newLength = targetIsArray? target.length : 0
+        
+        // 隐式更新length的情况，push pop shift unshift等方法
+        if(targetIsArray && oldLength !== newLength && key !== 'length') {
+            trigger(target, 'length')
+        }
 
         if (isRef(oldValue) && !isRef(newValue)) {
             /**
@@ -30,6 +40,7 @@ export const mutableHandlers = {
             oldValue.value = newValue
             return res
         }
+        
         if (hasChanged(newValue, oldValue)) {
             trigger(target, key)
         }

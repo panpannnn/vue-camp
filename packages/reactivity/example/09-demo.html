@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数组中属性的响应式</title>
+</head>
+<body>
+    <script type="module">
+        import { reactive, effect, ref } from '../dist/reactivity.esm.js'
+        // import { ref, effect } from '../../../node_modules/vue/dist/vue.esm-browser.prod.js'
+
+        const state = reactive(['a', 'b', 'c', 'd'])
+
+        // effect(()=> {
+        //     console.log('state[3] ==> ', state[3]);
+        // })
+
+        // setTimeout(()=>{
+        //     // state[3] = 'e'
+        //     state.length = 2 // 显示更新length
+        // },1000)
+
+        effect(()=> {
+            console.log('state.length ==> ', state.length)
+        })
+
+        setTimeout(()=>{
+            state.push('e') // 隐式更新length
+        },1000)
+    </script>
+</body>
+</html>

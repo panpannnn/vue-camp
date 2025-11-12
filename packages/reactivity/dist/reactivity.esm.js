@@ -189,11 +189,21 @@ function trigger(target, key) {
   if (!depsMap) {
     return;
   }
-  let dep = depsMap.get(key);
-  if (!dep) {
-    return;
+  const targetIsArray = Array.isArray(target);
+  const newLength = targetIsArray ? target.length : 0;
+  if (targetIsArray && key === "length") {
+    depsMap.forEach((dep, depKey) => {
+      if (depKey >= newLength || depKey === "length") {
+        propagate(dep.subs);
+      }
+    });
+  } else {
+    let dep = depsMap.get(key);
+    if (!dep) {
+      return;
+    }
+    propagate(dep.subs);
   }
-  propagate(dep.subs);
 }
 var Dep = class {
   subs;
@@ -216,8 +226,14 @@ var mutableHandlers = {
     return Reflect.get(target, key, receiver);
   },
   set(target, key, newValue, receiver) {
+    const targetIsArray = Array.isArray(target);
+    const oldLength = targetIsArray ? target.length : 0;
     const oldValue = target[key];
     const res = Reflect.set(target, key, newValue, receiver);
+    const newLength = targetIsArray ? target.length : 0;
+    if (targetIsArray && oldLength !== newLength && key !== "length") {
+      trigger(target, "length");
+    }
     if (isRef(oldValue) && !isRef(newValue)) {
       oldValue.value = newValue;
       return res;
