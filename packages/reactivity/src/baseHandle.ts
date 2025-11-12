@@ -1,5 +1,6 @@
 import { hasChanged, isObject } from "@vue/shared";
-import { isRef, reactive } from "vue";
+import { isRef } from "./ref";
+import { reactive } from "./reactive";
 import { track, trigger } from "./dep";
 
 

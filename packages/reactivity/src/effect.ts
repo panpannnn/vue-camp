@@ -6,7 +6,9 @@ export function setActiveSub(sub) {
     activeSub = sub
 }
 
-class ReactiveEffect implements Sub {
+export class ReactiveEffect implements Sub {
+    // 表示这个 effect 是否激活
+    active = true
     // 依赖项链表头节点
     deps: Link | undefined
     // 依赖项链表尾节点
@@ -17,6 +19,9 @@ class ReactiveEffect implements Sub {
     constructor(public fn) { }
 
     run() {
+        if(!this.active) {
+            return this.fn()
+        }
         const prevSub = activeSub
         setActiveSub(this)
         startTrack(this)
@@ -34,6 +39,17 @@ class ReactiveEffect implements Sub {
     }
     scheduler() {
         this.run()
+    }
+
+    stop() {
+        if(this.active){
+            // 清理依赖
+            // 开始追踪，会把 depsTail 设置为 undefined
+            startTrack(this)
+            // 结束追踪，中间没有收集依赖，所以 depsTail 为 undefined，deps 有，清理所有依赖，依赖清理完成，就不会再被触发了
+            endTrack(this)
+            this.active = false
+        }
     }
 }
 export function effect(fn, option) {

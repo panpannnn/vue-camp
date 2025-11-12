@@ -51,3 +51,44 @@ export function triggerRef(dep) {
         propagate(dep.subs)
     }
 }
+
+/**
+ * const state = reactive({
+ *     foo: 1,
+ *     bar: 2
+ * })
+ * 双向 ref，会与源属性同步
+ * const fooRef = toRef(state, 'foo')
+ * 修改fooRef相当于修改state.foo， 访问fooRef.value就返回state.foo的值
+ */
+class ObjectRefImpl{
+    [ReaactiveFlags.IS_REF] = true
+    constructor(
+        public _object,
+        public _key,
+    ){}
+
+    get value(){
+        return this._object[this._key]
+    }
+
+    set value(newValue){
+        this._object[this._key] = newValue
+    }
+}
+
+export function toRef(target, key) {
+    return new ObjectRefImpl(target, key)
+}
+
+export function toRefs(target) {
+    let result = {}
+    for(const key in target) {
+        result[key] = new ObjectRefImpl(target, key)
+    }
+    return result
+}
+
+export function unref(value) {
+  return isRef(value) ? value.value : value
+}

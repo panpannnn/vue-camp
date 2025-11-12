@@ -44,6 +44,8 @@ class ComputedRefImpl implements Dependency, Sub {
         }
     }
 
+
+    // 作为sub与依赖的dep建立关联关系
     update() {
         const prevSub = activeSub
         setActiveSub(this)

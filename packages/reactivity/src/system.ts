@@ -24,6 +24,7 @@ export function link(dep, sub) {
     const currentDep = sub.depsTail
 
     /**
+     * 相同的节点复用，新增的插入到已复用的节点和未复用的节点中间
      * 复用节点的两种情况
      * 1.sub.depsTail 没有，并且 sub.deps 有，表示要复用头节点
      * 2.如果尾节点，有nextDep，这种情况下，要尝试复用尾节点的 nextDep
@@ -45,7 +46,7 @@ export function link(dep, sub) {
     const nextDep = currentDep === undefined ? sub.deps : currentDep.nextDep
     if (nextDep && nextDep.dep === dep) {
         // console.log('相同的依赖，直接复用');
-        sub.depsTail = nextDep
+        sub.depsTail = nextDep  // 新链表的尾节点，指向已复用的节点或新增的节点，新链表的尾节点后面的节点都应该删掉
         return
     }
 
@@ -116,7 +117,7 @@ export function startTrack(sub) {
 export function endTrack(sub) {
     sub.tracking = false
     sub.dirty = false
-    const depsTail = sub.depsTail
+    const depsTail = sub.depsTail // 新链表的尾节点，新链表的尾节点后面的节点都应该删掉
     /**
      * 1.depsTail 有，并且 depsTail 还有nextDep， 应该把它们的依赖关系清理掉
      * 2.depsTail 没有，并且头节点有，那就把所有的都清理掉

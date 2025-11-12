@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>toRef toRefs</title>
+</head>
+
+<body>
+    <script type="module">
+        import { ref, toRef, reactive, effect } from '../dist/reactivity.esm.js'
+        // import { ref, toRef, toRefs, reactive, effect } from '../../../node_modules/vue/dist/vue.esm-browser.prod.js'
+        
+        // const count = ref(1)
+        // console.log(toRef(count));
+        // console.log(toRef(1));
+        
+        const state = reactive({
+            foo: 1,
+            bar: 2
+        })
+
+        // 双向 ref，会与源属性同步
+        const fooRef = toRef(state, 'foo')
+
+        // 更改该 ref 会更新源属性
+        // fooRef.value++
+        // console.log(fooRef,state.foo) // 2
+
+        // // 更改源属性也会更新该 ref
+        // state.foo++
+        // console.log(fooRef.value) // 3
+        
+        // class ObjectRefImpl{
+        //     [ReaactiveFlags.IS_REF] = true
+        //     constructor(
+        //         public _object,
+        //         public _key,
+        //     ){}
+
+        //     get value(){
+        //         return this._object[this._key]
+        //     }
+
+        //     set value(newValue){
+        //         this._object[this._key] = newValue
+        //     }
+        // }
+        effect(()=>{
+            // 访问了fooRef.value，实际上访问的是this._object[this._key]即state.foo，建立state.foo与该effect的依赖关系，修改state.foo会重新执行该effect函数
+            console.log(fooRef.value,'fooRef.value');
+            // console.log(state.foo,'state.foo');
+        })
+        setTimeout(()=>{
+            // fooRef.value++
+            state.foo++
+        },1000)
+
+    </script>
+</body>
+
+</html>

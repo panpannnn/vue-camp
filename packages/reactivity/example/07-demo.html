@@ -9,17 +9,91 @@
 
 <body>
     <div id="app"></div>
+    <button id="btn">按钮</button>
     <script type="module">
-        import { ref, effect, computed } from '../dist/reactivity.esm.js'
-        // import { reactive, effect } from '../../../node_modules/vue/dist/vue.esm-browser.prod.js'
+        import { ref, watch, reactive } from '../dist/reactivity.esm.js'
+        // import { ref, watch, reactive } from '../../../node_modules/vue/dist/vue.esm-browser.prod.js'
 
-        const count = ref(0)
-        effect(() => {
-            console.log(count.value);
+        // const count = ref(0)
+        // const stop = watch(count, (newValue, oldValue) => {
+        //     console.log(count.value, '触发watch');
+        // },{
+        //     once: true
+        // })
+        // setTimeout(() => {
+        //     count.value = 1
+        //     // stop()
+        // }, 1000);
+        // btn.onclick = () => {
+        //     count.value++
+        // }
+        
+        // 测试深层监听
+        // const state = ref({
+        //     name: 'Tony',
+        //     age: 18,
+        //     a: {
+        //         b:'b',
+        //         c: {
+        //             d: 'd'
+        //         }
+        //     }
+        // })
+        
+        // // 测试循环引用
+        // state.value.e = state
+
+        // watch(state,(newValue,oldValue)=>{
+        //     console.log(newValue,oldValue);
+        // },{
+        //     deep: true
+        // })
+        // setTimeout(()=>{
+        //     state.value.a.b = 'new b'
+        // },1000)
+
+        // 测试reactive自动开启深层监听
+        // const state = reactive({
+        //     a:{
+        //         b:{
+        //             c: 1
+        //         }
+        //     }
+        // })
+        // watch(state,(newValue,oldValue)=>{
+        //     console.log(newValue,oldValue,'测试reactive自动开启深层监听');
+        // })
+        // setTimeout(()=>{
+        //     state.a.b.c = 2
+        // },1000)
+
+        // 测试deep传数字，和onCleanup
+        const state = reactive({
+            a:{
+                b:{
+                    c: 1
+                },
+                name: 'tony'
+            },
+            age: 18
         })
-        setTimeout(() => {
-            count.value = 1
-        }, 1000);
+        watch(state,(newValue,oldValue,onCleanup)=>{
+            console.log(newValue,oldValue,'测试reactive自动开启深层监听');
+            onCleanup(()=>{
+                console.log('onCleanup');
+            })
+        },{
+            deep: 3
+        })
+        setTimeout(()=>{
+            state.a.b.c = 2
+            // state.a.name = 'Mike'
+            // state.age = 188
+        },1000)
+
+        btn.onclick = () => {
+            state.a.b.c++
+        }
     </script>
 </body>
 
