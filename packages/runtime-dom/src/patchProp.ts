@@ -13,7 +13,7 @@ export function patchProp(el, key, prevValue, nextValue){
     }
 
     if(isOn(key)){
-        return patchEvent(el,prevValue,nextValue)
+        return patchEvent(el,key,nextValue)
     }
 
     patchAttr(el,key,nextValue)

@@ -18,12 +18,30 @@
         import { renderOptions } from '../dist/vue.esm.js'
         
         const renderer = createRenderer(renderOptions)
+        // const vnode = h(
+        //     'div',
+        //     {
+        //         class: 'aaa',
+        //         style: { color: 'red', onClick: () => { console.log('更新前点击事件') }},
+        //         id: 'id1'
+        //     },
+        //     'hello world',
+        // )
+
+        // const vnode2 = h(
+        //     'div',
+        //     {
+        //         class: 'bbb',
+        //         style: { backgroundColor: 'yellow', onClick: () => { console.log('更新后点击事件') }},
+        //         id: 'id2'
+        //     },
+        //     'hello world',
+        // )
+
         const vnode = h(
             'div',
             {
-                class: 'aaa',
-                style: { color: 'red' },
-                id: 'id1'
+                onClick: () => { console.log('更新前点击事件') }
             },
             'hello world',
         )
@@ -31,18 +49,17 @@
         const vnode2 = h(
             'div',
             {
-                class: 'bbb',
-                style: { backgroundColor: 'yellow' },
-                id: 'id2'
+                onClick: () => { console.log('更新后点击事件') }
             },
             'hello world',
         )
+
 
         renderer.render(vnode, app)
 
         setTimeout(() => {
             renderer.render(vnode2, app)
-        }, 1000);
+        }, 2000);
     </script>
 </body>
 

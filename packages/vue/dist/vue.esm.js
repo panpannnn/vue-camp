@@ -1,4 +1,4 @@
-// packages/shared/src/index.ts
+// packages/shared/src/utils.ts
 function isObject(value) {
   return typeof value === "object" && value !== null;
 }
@@ -11,6 +11,7 @@ function isFunction(value) {
 function isOn(key) {
   return /^on[A-Z]/.test(key);
 }
+var isArray = Array.isArray;
 
 // packages/reactivity/src/system.ts
 var linkPool;
@@ -465,7 +466,76 @@ function traverse(value, depth = Infinity, seen = /* @__PURE__ */ new Set()) {
   return value;
 }
 
-// packages/vue/src/nodeOps.ts
+// packages/runtime-core/src/renderer.ts
+function createRenderer(renderOptions2) {
+  const render2 = (vnode, container) => {
+  };
+  return {
+    render: render2
+  };
+}
+
+// packages/runtime-core/src/h.ts
+function h(type, propsOrChildren, children) {
+  let l = arguments.length;
+  if (l === 2) {
+    if (isArray(propsOrChildren)) {
+      return createVNode(
+        type,
+        null,
+        propsOrChildren
+      );
+    }
+    if (isObject(propsOrChildren)) {
+      if (isVNode(propsOrChildren)) {
+        return createVNode(type, null, [
+          propsOrChildren
+        ]);
+      }
+      return createVNode(
+        type,
+        propsOrChildren,
+        children
+      );
+    }
+    return createVNode(
+      type,
+      null,
+      propsOrChildren
+    );
+  } else {
+    if (l > 3) {
+      children = [...arguments].slice(2);
+    } else if (isVNode(children)) {
+      children = [children];
+    }
+    return createVNode(
+      type,
+      propsOrChildren,
+      children
+    );
+  }
+}
+function isVNode(value) {
+  return value?.__v_isVNode;
+}
+function createVNode(type, props, children) {
+  const vnode = {
+    // 证明我是一个虚拟节点
+    __v_isVNode: true,
+    type,
+    props,
+    children,
+    // 做 diff 用的
+    key: props?.key,
+    // 虚拟节点要挂载的元素
+    el: null,
+    shapeFlag: 9
+  };
+  return vnode;
+}
+
+// packages/runtime-dom/src/nodeOps.ts
 var nodeOps = {
   // 插入节点
   insert(el, parent, anchor) {
@@ -508,7 +578,7 @@ var nodeOps = {
   }
 };
 
-// packages/vue/src/module/patchClass.ts
+// packages/runtime-dom/src/module/patchClass.ts
 function patchClass(el, value) {
   if (value == void 0) {
     el.removeAttribute("class");
@@ -517,7 +587,7 @@ function patchClass(el, value) {
   }
 }
 
-// packages/vue/src/module/patchStyle.ts
+// packages/runtime-dom/src/module/patchStyle.ts
 function patchStyle(el, prevValue, nextValue) {
   const style = el.style;
   for (const key in nextValue) {
@@ -532,7 +602,7 @@ function patchStyle(el, prevValue, nextValue) {
   }
 }
 
-// packages/vue/src/module/patchAttr.ts
+// packages/runtime-dom/src/module/patchAttr.ts
 function patchAttr(el, key, nextValue) {
   if (nextValue == void 0) {
     el.removeAttribute(key);
@@ -541,11 +611,37 @@ function patchAttr(el, key, nextValue) {
   }
 }
 
-// packages/vue/src/module/patchEvent.ts
-function patchEvent(el, key, nextValue) {
+// packages/runtime-dom/src/module/patchEvent.ts
+function createInvoker(value) {
+  const invoker = (e) => {
+    invoker.value(e);
+  };
+  invoker.value = value;
+  return invoker;
+}
+var veiKey = Symbol("_vei");
+function patchEvent(el, rawName, nextValue) {
+  const name = rawName.slice(2).toLowerCase();
+  const invokers = el[veiKey] ??= {};
+  const existingInvoker = invokers[rawName];
+  console.log(el, invokers);
+  if (nextValue) {
+    if (existingInvoker) {
+      existingInvoker.value = nextValue;
+      return;
+    }
+    const invoker = createInvoker(nextValue);
+    invokers[rawName] = invoker;
+    el.addEventListener(name, invoker);
+  } else {
+    if (existingInvoker) {
+      el.removeEventListener(name, existingInvoker);
+      invokers[rawName] = void 0;
+    }
+  }
 }
 
-// packages/vue/src/patchProp.ts
+// packages/runtime-dom/src/patchProp.ts
 function patchProp(el, key, prevValue, nextValue) {
   if (key === "class") {
     return patchClass(el, nextValue);
@@ -554,23 +650,33 @@ function patchProp(el, key, prevValue, nextValue) {
     return patchStyle(el, prevValue, nextValue);
   }
   if (isOn(key)) {
-    return patchEvent(el, prevValue, nextValue);
+    return patchEvent(el, key, nextValue);
   }
   patchAttr(el, key, nextValue);
 }
 
-// packages/vue/src/index.ts
+// packages/runtime-dom/src/index.ts
 var renderOptions = { patchProp, ...nodeOps };
+var renderer = createRenderer(renderOptions);
+function render(vnode, container) {
+  return renderer.render(
+    vnode,
+    container
+  );
+}
 export {
   ReaactiveFlags,
   ReactiveEffect,
   activeSub,
   computed,
+  createRenderer,
   effect,
+  h,
   isReactive,
   isRef,
   reactive,
   ref,
+  render,
   renderOptions,
   setActiveSub,
   toRef,
