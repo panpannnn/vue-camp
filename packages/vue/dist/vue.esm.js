@@ -8,6 +8,9 @@ function hasChanged(newValue, oldValue) {
 function isFunction(value) {
   return typeof value === "function";
 }
+function isString(value) {
+  return typeof value === "string";
+}
 function isOn(key) {
   return /^on[A-Z]/.test(key);
 }
@@ -467,72 +470,107 @@ function traverse(value, depth = Infinity, seen = /* @__PURE__ */ new Set()) {
 }
 
 // packages/runtime-core/src/renderer.ts
-function createRenderer(renderOptions2) {
+function isSameVNodeType(n1, n2) {
+  return n1.type === n2.type && n1.key === n2.key;
+}
+function createRenderer(options) {
+  const {
+    createElement: hostCreateElement,
+    insert: hostInsert,
+    remove: hostRemove,
+    setElementText: hostSetElementText,
+    createText: hostCreateText,
+    setText: hostSetText,
+    parentNode: hostParentNode,
+    nextSibling: hostNextSibling,
+    patchProp: hostPatchProp
+  } = options;
+  const unmountChildren = (children) => {
+  };
+  const unmount = (vnode) => {
+    const { type, shapeFlag, children } = vnode;
+    if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+    }
+    hostRemove(vnode.el);
+  };
+  const mountElement = (vnode, container) => {
+  };
+  const patchElement = (n1, n2) => {
+  };
+  const patch = (n1, n2, container) => {
+    if (n1 === n2) {
+      return;
+    }
+    if (n1 && !isSameVNodeType(n1, n2)) {
+      n1 = null;
+    }
+    if (n1 === null) {
+      mountElement(n2, container);
+    } else {
+      patchElement(n1, n2);
+    }
+  };
   const render2 = (vnode, container) => {
+    if (vnode === null) {
+      if (container._vnode) {
+        unmount(container);
+      }
+    } else {
+      if (container._vnode) {
+        patch(container._vnode || null, vnode, container);
+      }
+    }
+    container._vnode = vnode;
   };
   return {
     render: render2
   };
 }
 
-// packages/runtime-core/src/h.ts
-function h(type, propsOrChildren, children) {
-  let l = arguments.length;
-  if (l === 2) {
-    if (isArray(propsOrChildren)) {
-      return createVNode(
-        type,
-        null,
-        propsOrChildren
-      );
-    }
-    if (isObject(propsOrChildren)) {
-      if (isVNode(propsOrChildren)) {
-        return createVNode(type, null, [
-          propsOrChildren
-        ]);
-      }
-      return createVNode(
-        type,
-        propsOrChildren,
-        children
-      );
-    }
-    return createVNode(
-      type,
-      null,
-      propsOrChildren
-    );
-  } else {
-    if (l > 3) {
-      children = [...arguments].slice(2);
-    } else if (isVNode(children)) {
-      children = [children];
-    }
-    return createVNode(
-      type,
-      propsOrChildren,
-      children
-    );
-  }
-}
+// packages/runtime-core/src/vnode.ts
 function isVNode(value) {
   return value?.__v_isVNode;
 }
 function createVNode(type, props, children) {
+  let shapeFlag = 0;
+  if (isString(type)) {
+    shapeFlag = 1 /* ELEMENT */;
+  }
   const vnode = {
-    // 证明我是一个虚拟节点
     __v_isVNode: true,
     type,
     props,
     children,
-    // 做 diff 用的
     key: props?.key,
     // 虚拟节点要挂载的元素
     el: null,
     shapeFlag: 9
   };
   return vnode;
+}
+
+// packages/runtime-core/src/h.ts
+function h(type, propsOrChildren, children) {
+  const l = arguments.length;
+  if (l === 2) {
+    if (isArray(propsOrChildren)) {
+      return createVNode(type, null, propsOrChildren);
+    }
+    if (isObject(propsOrChildren)) {
+      if (isVNode(propsOrChildren)) {
+        return createVNode(type, null, [propsOrChildren]);
+      }
+      return createVNode(type, propsOrChildren, children);
+    }
+    return createVNode(type, null, propsOrChildren);
+  } else {
+    if (l > 3) {
+      children = [...arguments].slice(2);
+    } else if (isVNode(children)) {
+      children = [children];
+    }
+    return createVNode(type, propsOrChildren, children);
+  }
 }
 
 // packages/runtime-dom/src/nodeOps.ts
@@ -674,6 +712,7 @@ export {
   h,
   isReactive,
   isRef,
+  isSameVNodeType,
   reactive,
   ref,
   render,
