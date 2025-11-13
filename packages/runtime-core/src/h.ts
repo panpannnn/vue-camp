@@ -73,6 +73,11 @@
 //     return vnode
 // }
 
+
+
+
+
+// 文档复制的
 import {
   isArray,
   isObject
@@ -91,7 +96,6 @@ import {
  * 8. h('div', { class: 'container' },[h('span', 'hello'), h('span', 'world')]) 和 7 一个意思
  */
 
-// 文档复制的
 export function h(
   type,
   propsOrChildren?,

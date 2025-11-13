@@ -28,13 +28,13 @@
        * 8. h('div', { class: 'container' },[h('span', 'hello'), h('span', 'world')]) 和 7 一个意思
        */
       //   const vnode = h('div', 'hello world')
-      //   const vnode = h('div', [h('span', 'hello'), h('span', ' world')])
+        const vnode = h('div', [h('span', 'hello'), h('span', ' world')])
     //   const vnode = h('div', h('span', 'hello'))
     // const vnode = h('div', { class: 'container' })
     // const vnode = h('div', { class: 'container' }, 'hello world')
     // const vnode = h('div', { class: 'container' }, h('span', 'hello world'))
     // const vnode = h('div', { class: 'container' }, h('span', 'hello'), h('span', 'world'))
-    const vnode = h('div', { class: 'container' }, [h('span', 'hello'), h('span', 'world')])
+    // const vnode = h('div', { class: 'container' }, [h('span', 'hello'), h('span', 'world')])
       console.log('vnode ==> ', vnode)
 
       render(vnode, app)
