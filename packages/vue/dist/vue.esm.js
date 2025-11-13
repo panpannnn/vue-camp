@@ -486,16 +486,88 @@ function createRenderer(options) {
     patchProp: hostPatchProp
   } = options;
   const unmountChildren = (children) => {
+    for (let i = 0; i < children.length; i++) {
+      unmount(children[i]);
+    }
   };
   const unmount = (vnode) => {
     const { type, shapeFlag, children } = vnode;
     if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+      unmountChildren(children);
     }
     hostRemove(vnode.el);
   };
+  const mountChildren = (children, el) => {
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      patch(null, child, el);
+    }
+  };
   const mountElement = (vnode, container) => {
+    const { type, props, children, shapeFlag } = vnode;
+    const el = hostCreateElement(type);
+    if (props) {
+      for (const key in props) {
+        hostPatchProp(el, key, null, props[key]);
+      }
+    }
+    vnode.el = el;
+    if (shapeFlag & 8 /* TEXT_CHILDREN */) {
+      hostSetElementText(el, children);
+    } else if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+      mountChildren(children, el);
+    }
+    hostInsert(el, container);
+  };
+  const patchProps = (el, oldProps, newProps) => {
+    if (oldProps) {
+      for (const key in oldProps) {
+        hostPatchProp(el, key, oldProps[key], null);
+      }
+      if (newProps) {
+        for (const key in newProps) {
+          hostPatchProp(el, key, oldProps?.[key], newProps[key]);
+        }
+      }
+    }
+  };
+  const patchChildren = (n1, n2) => {
+    const el = n2.el;
+    const prevShapeFlg = n1.shapeFlag;
+    const shapeFlag = n2.shapeFlag;
+    if (shapeFlag & 8 /* TEXT_CHILDREN */) {
+      if (prevShapeFlg & 16 /* ARRAY_CHILDREN */) {
+        unmountChildren(n1.children);
+      }
+      if (n1.children !== n2.children) {
+        hostSetElementText(el, n2.children);
+      }
+    } else {
+      if (prevShapeFlg & 8 /* TEXT_CHILDREN */) {
+        hostSetElementText(el, "");
+        if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+          mountChildren(n2.children, el);
+        }
+      } else {
+        if (prevShapeFlg & 16 /* ARRAY_CHILDREN */) {
+          if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+          } else {
+            unmountChildren(n1.children);
+          }
+        } else {
+          if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+            mountChildren(n2.children, el);
+          }
+        }
+      }
+    }
   };
   const patchElement = (n1, n2) => {
+    const el = n2.el = n1.el;
+    const oldProps = n1.props;
+    const newProps = n2.props;
+    patchProps(el, oldProps, newProps);
+    patchChildren(n1, n2);
   };
   const patch = (n1, n2, container) => {
     if (n1 === n2) {
@@ -513,12 +585,10 @@ function createRenderer(options) {
   const render2 = (vnode, container) => {
     if (vnode === null) {
       if (container._vnode) {
-        unmount(container);
+        unmount(container._vnode);
       }
     } else {
-      if (container._vnode) {
-        patch(container._vnode || null, vnode, container);
-      }
+      patch(container._vnode || null, vnode, container);
     }
     container._vnode = vnode;
   };
@@ -536,6 +606,11 @@ function createVNode(type, props, children) {
   if (isString(type)) {
     shapeFlag = 1 /* ELEMENT */;
   }
+  if (isString(children)) {
+    shapeFlag |= 8 /* TEXT_CHILDREN */;
+  } else if (isArray(children)) {
+    shapeFlag |= 16 /* ARRAY_CHILDREN */;
+  }
   const vnode = {
     __v_isVNode: true,
     type,
@@ -544,7 +619,7 @@ function createVNode(type, props, children) {
     key: props?.key,
     // 虚拟节点要挂载的元素
     el: null,
-    shapeFlag: 9
+    shapeFlag
   };
   return vnode;
 }
@@ -628,12 +703,14 @@ function patchClass(el, value) {
 // packages/runtime-dom/src/module/patchStyle.ts
 function patchStyle(el, prevValue, nextValue) {
   const style = el.style;
-  for (const key in nextValue) {
-    style[key] = nextValue[key];
+  if (nextValue) {
+    for (const key in nextValue) {
+      style[key] = nextValue[key];
+    }
   }
   if (prevValue) {
     for (const key in prevValue) {
-      if (!(key in nextValue)) {
+      if (nextValue?.[key] == null) {
         style[key] = null;
       }
     }

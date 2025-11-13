@@ -1,5 +1,5 @@
-import { isString, ShapeFlags } from "@vue/shared"
- 
+import { isArray, isString, ShapeFlags } from "@vue/shared"
+
 export function isVNode(value) {
     return value?.__v_isVNode
 }
@@ -13,13 +13,15 @@ export function isVNode(value) {
 export function createVNode(type, props?, children?) {
     let shapeFlag = 0
 
-    if(isString(type)){
+    if (isString(type)) {
         shapeFlag = ShapeFlags.ELEMENT
     }
+    if (isString(children)) {
+        shapeFlag |= ShapeFlags.TEXT_CHILDREN
+    } else if (isArray(children)) {
+        shapeFlag |= ShapeFlags.ARRAY_CHILDREN
+    }
 
-
-
-    
     const vnode = {
         __v_isVNode: true,
         type,
@@ -29,7 +31,7 @@ export function createVNode(type, props?, children?) {
 
         // 虚拟节点要挂载的元素
         el: null,
-        shapeFlag: 9
+        shapeFlag
     }
 
     return vnode
