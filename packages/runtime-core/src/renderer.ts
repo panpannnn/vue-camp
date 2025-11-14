@@ -17,13 +17,13 @@ export function createRenderer(options) {
     patchProp: hostPatchProp,
   } = options
 
-  const unmountChildren = (children) => {
+  const unmountChildren = children => {
     for (let i = 0; i < children.length; i++) {
       unmount(children[i])
     }
   }
 
-  const unmount = (vnode) => {
+  const unmount = vnode => {
     const { type, shapeFlag, children } = vnode
     if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
       // 子节点是数组，递归卸载子节点
@@ -48,10 +48,10 @@ export function createRenderer(options) {
    *    如果子节点是文本，则使用 `hostSetElementText` 函数设置文本内容；
    *    如果子节点是数组，则递归调用 `mountChildren` 函数挂载每一个子节点。
    * 4. **插入到容器中**：最后，将创建好的 DOM 元素插入到指定的容器中。
-   * @param vnode 
-   * @param container 
+   * @param vnode
+   * @param container
    */
-  const mountElement = (vnode, container) => {
+  const mountElement = (vnode, container, anchor) => {
     const { type, props, children, shapeFlag } = vnode
     const el = hostCreateElement(type)
 
@@ -69,7 +69,7 @@ export function createRenderer(options) {
       mountChildren(children, el)
     }
 
-    hostInsert(el, container)
+    hostInsert(el, container, anchor)
   }
 
   const patchProps = (el, oldProps, newProps) => {
@@ -77,12 +77,158 @@ export function createRenderer(options) {
       for (const key in oldProps) {
         hostPatchProp(el, key, oldProps[key], null)
       }
+    }
 
-      if (newProps) {
-        for (const key in newProps) {
-          hostPatchProp(el, key, oldProps?.[key], newProps[key])
-        }
+    if (newProps) {
+      for (const key in newProps) {
+        hostPatchProp(el, key, oldProps?.[key], newProps[key])
       }
+    }
+  }
+
+  const patchKeyedChildren = (c1, c2, el) => {
+    let i = 0
+    let e1 = c1.length - 1
+    let e2 = c2.length - 1
+    
+    /**
+     *
+     * 1.1 头部对比
+     * c1 => [a, b]
+     * c2 => [a, b, c, d]
+     *
+     * 开始时：i = 0, e1 = 1, e2 = 3
+     * 结束时：i = 2, e1 = 1, e2 = 3
+     */
+    while(i<=e1 && i<=e2) {
+        let n1 = c1[i]
+        let n2 = c2[i]
+        if (isSameVNodeType(n1, n2)) {
+            patch(n1, n2, el)
+        }else {
+            break
+        }
+        i++
+    }
+    
+    /**
+     *
+     * 1.2 尾部对比
+     *
+     * c1 => [a, b]
+     * c2 => [c, d, a, b]
+     * 开始时：i = 0, e1 = 1, e2 = 3
+     * 结束时：i = 0，e1 = -1, e2 = 1
+     */
+    while(i<=e1 && i<=e2) {
+        let n1 = c1[e1]
+        let n2 = c2[e2]
+        if (isSameVNodeType(n1, n2)) {
+            patch(n1, n2, el)
+        }else {
+            break
+        }
+        e1--
+        e2--
+    }
+    
+    /**
+     * i > e1 时，说明新节点比旧节点多，需要插入多出来的新节点，插入范围是 i-e2
+     * i > e2 时，说明旧节点比新节点多，需要删除多出来的旧节点，删除范围是 i-e1
+     */
+    if (i > e1) {
+        /**
+         * 找到节点插入的位置
+         * c1 => [a, b]
+         * c2 => [d, c, a, b]
+         * 开始时：i = 0, e1 = 1, e2 = 3
+         * 结束时：i = 0，e1 = -1, e2 = 1
+         * 要插入的元素是下标是0，1，要插入到下标为 e2+1 节点的前面[d, a, b],[d, c, a, b]
+         * 
+         * 如果 e2+1 !< c2.length 说明是尾部插入，anchor 为null
+         * 
+         * c1 => [a, b]
+         * c2 => [a, b, c, d]
+         * 开始时：i = 0, e1 = 1, e2 = 3
+         * 结束时：i = 2，e1 = 1, e2 = 3
+         * e2+1=4 !< c2.length 尾部插入[a, b, c], [a, b, c, d]
+         */
+        let nextPos = e2 + 1
+        let anchor = nextPos < c2.length ? c2[nextPos].el : null
+
+        while (i <= e2) {
+            patch(null, c2[i], el, anchor)
+            i++
+        }
+    }else if(i > e2) {
+        while (i <= e1) {
+            unmount(c1[i])
+            i++
+        }
+    }else{
+        /**
+         * 乱序对比
+         * c1 =>[a, b, c, d, e]
+         * c2 =>[a, c, d, b, e]
+         * 开始时：i = 0, e1 = 4, e2 = 4
+         * 结束时：i = 1，e1 = 3, e2 = 3
+         * 此时 i 既不大于 e1 也不大于 e2
+         * 
+         * 中间还有三个没有对比完，但是这些 `key` 还是在的
+         * 所以我们需要到 `c1` 中找到对应 `key` 的虚拟节点，进行 `patch`
+         * c1 =>[b, c, d]
+         * c2 =>[c, d, b]
+         */
+        let s1 = i // 旧节点开始查找的位置
+        let s2 = i // 新节点开始查找的位置
+        
+        const keyToNewIndexMap = new Map()
+        /**
+         * 遍历新的 s2 - e2 之间，这些是还没更新的，做一份 key => index map
+         */
+        for(let j = s2; j <= e2; j++) {
+            const n2 = c2[j]
+            keyToNewIndexMap.set(n2.key, j)
+        }
+        /**
+    `     * 遍历老的子节点
+         */
+        for(let j = s1; j <= e1; j++) {
+            let n1 = c1[j]
+            
+            // 找是否有新节点的 key 与旧节点的相同
+            let newIndex = keyToNewIndexMap.get(n1.key)
+            if (newIndex) {
+                // 如果找到相同的key，就 patch
+                patch(n1, c2[newIndex], el)
+            }else{
+                // 如果没找到相同的key，就 卸载该节点
+                unmount(n1)
+            }
+        }
+
+        
+        /**
+         * 到这里顺序还是不对，我们需要遍历新的子节点，将每个子节点插入到正确的位置
+         * 1. 遍历新的子元素，调整顺序，倒序插入
+         * 2. 新的有，老的没有的，我们需要重新挂载
+         */
+        
+        for(let j = e2; j >= s1; j--) {
+            const n2 = c2[j]
+
+            // 拿到它的下一个子元素
+            const anchor = c2[j+1]?.el || null
+            if (n2.el) {
+                // 
+                hostInsert(n2.el, el, anchor)
+            }else {
+                // 新的有，老的没有，重新挂载
+                patch(null, n2, el, anchor)
+            }
+        }
+
+
     }
   }
 
@@ -114,7 +260,7 @@ export function createRenderer(options) {
     const shapeFlag = n2.shapeFlag
 
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
-      // 新的的文本
+      // 新的是文本
       if (prevShapeFlg & ShapeFlags.ARRAY_CHILDREN) {
         // 老的是数组
         unmountChildren(n1.children)
@@ -136,13 +282,13 @@ export function createRenderer(options) {
           mountChildren(n2.children, el)
         }
       } else {
-        // 老的数组 或者 null     
+        // 老的数组 或者 null
         // 新的还是 数组 或者 null
         if (prevShapeFlg & ShapeFlags.ARRAY_CHILDREN) {
           // 老的是数组
           if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
             // 新的也是数组
-            // TODO 全量 diff 
+            patchKeyedChildren(n1.children, n2.children, el)
           } else {
             // 新的为null，卸载老的数组
             unmountChildren(n1.children)
@@ -156,16 +302,15 @@ export function createRenderer(options) {
         }
       }
     }
-
   }
 
   const patchElement = (n1, n2) => {
     /**
-   * 1. 复用 dom 元素
-   * 2. 更新 props
-   * 3. 更新 children
-   */
-    // 复用 dom 元素 每次进来，都拿上一次的 el，保存到最新的虚拟节点上 n2.el  
+     * 1. 复用 dom 元素
+     * 2. 更新 props
+     * 3. 更新 children
+     */
+    // 复用 dom 元素 每次进来，都拿上一次的 el，保存到最新的虚拟节点上 n2.el
     const el = (n2.el = n1.el)
     const oldProps = n1.props
     const newProps = n2.props
@@ -184,18 +329,19 @@ export function createRenderer(options) {
    * @param n2
    * @param container
    */
-  const patch = (n1, n2, container) => {
+  const patch = (n1, n2, container, anchor = null) => {
     if (n1 === n2) {
       return
     }
 
     if (n1 && !isSameVNodeType(n1, n2)) {
+      unmount(n1)
       n1 = null
     }
 
     if (n1 === null) {
       // 挂载元素
-      mountElement(n2, container)
+      mountElement(n2, container, anchor)
     } else {
       // 更新元素
       patchElement(n1, n2)

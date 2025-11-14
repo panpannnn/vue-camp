@@ -503,7 +503,7 @@ function createRenderer(options) {
       patch(null, child, el);
     }
   };
-  const mountElement = (vnode, container) => {
+  const mountElement = (vnode, container, anchor) => {
     const { type, props, children, shapeFlag } = vnode;
     const el = hostCreateElement(type);
     if (props) {
@@ -517,16 +517,81 @@ function createRenderer(options) {
     } else if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
       mountChildren(children, el);
     }
-    hostInsert(el, container);
+    hostInsert(el, container, anchor);
   };
   const patchProps = (el, oldProps, newProps) => {
     if (oldProps) {
       for (const key in oldProps) {
         hostPatchProp(el, key, oldProps[key], null);
       }
-      if (newProps) {
-        for (const key in newProps) {
-          hostPatchProp(el, key, oldProps?.[key], newProps[key]);
+    }
+    if (newProps) {
+      for (const key in newProps) {
+        hostPatchProp(el, key, oldProps?.[key], newProps[key]);
+      }
+    }
+  };
+  const patchKeyedChildren = (c1, c2, el) => {
+    let i = 0;
+    let e1 = c1.length - 1;
+    let e2 = c2.length - 1;
+    while (i <= e1 && i <= e2) {
+      let n1 = c1[i];
+      let n2 = c2[i];
+      if (isSameVNodeType(n1, n2)) {
+        patch(n1, n2, el);
+      } else {
+        break;
+      }
+      i++;
+    }
+    while (i <= e1 && i <= e2) {
+      let n1 = c1[e1];
+      let n2 = c2[e2];
+      if (isSameVNodeType(n1, n2)) {
+        patch(n1, n2, el);
+      } else {
+        break;
+      }
+      e1--;
+      e2--;
+    }
+    if (i > e1) {
+      let nextPos = e2 + 1;
+      let anchor = nextPos < c2.length ? c2[nextPos].el : null;
+      while (i <= e2) {
+        patch(null, c2[i], el, anchor);
+        i++;
+      }
+    } else if (i > e2) {
+      while (i <= e1) {
+        unmount(c1[i]);
+        i++;
+      }
+    } else {
+      let s1 = i;
+      let s2 = i;
+      const keyToNewIndexMap = /* @__PURE__ */ new Map();
+      for (let j = s2; j <= e2; j++) {
+        const n2 = c2[j];
+        keyToNewIndexMap.set(n2.key, j);
+      }
+      for (let j = s1; j <= e1; j++) {
+        let n1 = c1[j];
+        let newIndex = keyToNewIndexMap.get(n1.key);
+        if (newIndex) {
+          patch(n1, c2[newIndex], el);
+        } else {
+          unmount(n1);
+        }
+      }
+      for (let j = e2; j >= s1; j--) {
+        const n2 = c2[j];
+        const anchor = c2[j + 1]?.el || null;
+        if (n2.el) {
+          hostInsert(n2.el, el, anchor);
+        } else {
+          patch(null, n2, el, anchor);
         }
       }
     }
@@ -551,6 +616,7 @@ function createRenderer(options) {
       } else {
         if (prevShapeFlg & 16 /* ARRAY_CHILDREN */) {
           if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+            patchKeyedChildren(n1.children, n2.children, el);
           } else {
             unmountChildren(n1.children);
           }
@@ -569,15 +635,16 @@ function createRenderer(options) {
     patchProps(el, oldProps, newProps);
     patchChildren(n1, n2);
   };
-  const patch = (n1, n2, container) => {
+  const patch = (n1, n2, container, anchor = null) => {
     if (n1 === n2) {
       return;
     }
     if (n1 && !isSameVNodeType(n1, n2)) {
+      unmount(n1);
       n1 = null;
     }
     if (n1 === null) {
-      mountElement(n2, container);
+      mountElement(n2, container, anchor);
     } else {
       patchElement(n1, n2);
     }
